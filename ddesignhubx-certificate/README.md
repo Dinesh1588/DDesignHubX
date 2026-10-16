@@ -1,66 +1,59 @@
 # DDesignHubX Academy — Certificate Verification
 
-A deployable certificate issuing and QR verification web app with premium responsive UI, secure admin login, Supabase database, and Vercel serverless endpoints.
+A responsive certificate issuing and QR verification app with username/password admin login, Supabase database storage, and Vercel serverless endpoints.
 
 ## Features
 - Public landing page with certificate ID search
 - Public certificate verification page, including revoked status
-- Password-protected admin login using Supabase Auth
+- Admin login with a server-checked username and password
+- Signed, HttpOnly admin session cookie (8-hour expiry)
 - Admin-only certificate issuing, listing, QR PNG downloads, and revocation
 - Static QR points to a permanent `/verify/<random-uuid>` link
-- Database uses Row Level Security with **no client read/write policies**
-- Service-role key is used **only inside Vercel server functions**, never in browser code
+- Supabase service-role key is used only inside server functions, never in browser code
 
 ## 1. Set up Supabase
 1. Create a project at https://supabase.com.
 2. Open **SQL Editor** and execute `supabase/schema.sql`.
-3. Open **Authentication → Users**, add your own admin email as a user, and set a strong password. Confirm the email. Do not give students admin accounts.
-4. Find your **Project URL** and **anon / publishable key** in Supabase project settings. Find the **service_role / secret key** there too. Keep the service-role key private.
+3. Find your **Project URL** and **service_role / secret key** in Supabase project settings. Keep the service-role key private. The browser no longer needs a Supabase anon key for admin authentication.
 
-## 2. Configure environment variables
-Copy `.env.example` to `.env.local` for local frontend development and fill it in. **Do not commit `.env.local`.**
+## 2. Configure Vercel environment variables
+In Vercel, open **Project → Settings → Environment Variables** and add these values for the environment you deploy:
 
-For a Vercel deployment, add **all five** values in Project → Settings → Environment Variables:
-
-- `VITE_SUPABASE_URL`: your Supabase project URL
-- `VITE_SUPABASE_ANON_KEY`: your Supabase anon key
 - `SUPABASE_URL`: your Supabase project URL
-- `SUPABASE_SERVICE_ROLE_KEY`: secret service-role key (server-only)
-- `ADMIN_EMAIL`: the exact confirmed email of the admin user you created
+- `SUPABASE_SERVICE_ROLE_KEY`: your Supabase service-role/secret key (**server-only; never expose it in frontend code**)
+- `ADMIN_USERNAME`: the username you want to use for the admin login
+- `ADMIN_PASSWORD`: a long, unique password for the admin login
+- `ADMIN_SESSION_SECRET`: a random secret of at least 32 characters, used to sign admin sessions
 
-After changing environment variables, redeploy.
+Generate a session secret locally with Node.js using `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`. Do not share or commit this value. Do not use your Supabase service-role key as the session secret.
 
-## 3. Push to GitHub
-1. Create a **new GitHub repository** (do not overwrite your portfolio repository).
-2. Upload the project files, keeping `api/`, `src/`, `supabase/` and root files in their original folders.
-3. Never upload `.env` or `.env.local`.
+After adding or changing environment variables, redeploy the project. The old `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `ADMIN_EMAIL` values are not required by the new browser login flow.
 
-## 4. Deploy to Vercel
-1. Import the GitHub repository in https://vercel.com.
-2. Framework preset: **Vite**. Build command: `npm run build`; output directory: `dist`.
-3. Set all five environment variables listed above.
-4. Deploy. Visit `/admin` to log in.
+## 3. Deploy to Vercel
+1. Import this GitHub repository into https://vercel.com.
+2. Set the framework preset to **Vite**, build command to `npm run build`, and output directory to `dist`.
+3. Add all five environment variables above.
+4. Deploy, then visit `/admin` and sign in with your configured username and password.
 
-## 5. Issue and verify a certificate
+## 4. Issue and verify a certificate
 1. Log in at `https://YOUR-VERCEL-DOMAIN/admin`.
 2. Fill in student details and click **Issue & generate QR**.
-3. Download the QR PNG and place it in your certificate design in Figma.
+3. Download the QR PNG and place it in your certificate design.
 4. Send the certificate to the student.
 5. Scanning the QR opens `https://YOUR-VERCEL-DOMAIN/verify/<random-uuid>` and verifies the database record.
 6. Alternatively, users can search using the displayed certificate ID on the home page.
 7. If you revoke a certificate in the dashboard, its verification page shows **Certificate revoked**.
 
-**Use a permanent domain before issuing real certificates.** QR images encode the exact URL at the time of generation. If you change domains later, old QR codes won't automatically update.
+**Use a permanent domain before issuing real certificates.** QR images encode the exact URL at the time of generation. If you change domains later, old QR codes will not automatically update.
 
 ## Local development
-Run `npm install` and `npm run dev` for the frontend. **Note:** Vite alone does not execute `/api/*` Vercel serverless functions. For a fully working local API, install Vercel CLI and use `vercel dev`, or deploy a preview to Vercel.
+Run `npm install` and `npm run dev` for the frontend. Vite alone does not execute `/api/*` Vercel serverless functions. For a fully working local API, use Vercel CLI with `vercel dev`, or deploy a preview to Vercel. The session cookie is marked `Secure`, so test the full login flow on HTTPS.
 
-## Security and production notes
-- This is an initial production-oriented starter, not an independently audited security system.
-- Enable multi-factor authentication for the admin account if your Supabase Auth configuration supports it.
-- Enable rate limiting/WAF for public `/api/find` and `/api/verify` endpoints in your hosting platform to reduce automated enumeration.
-- Add monitoring, backups, and a privacy policy before broad public use.
-- The public ID search deliberately reveals only a random verification token for an exact valid ID; it does not expose all certificates.
-- No student account can update records; the admin email is allowlisted on every admin API request.
-- PDF tamper detection is **not** implemented. The official database verification page is the source of truth.
+## Security notes
+- This is a practical starter implementation, not an independently audited security system.
+- Use a strong unique admin password and keep all secrets in Vercel environment variables.
+- Enable rate limiting/WAF for login and public verification endpoints to reduce automated attempts and enumeration.
+- The admin session expires after 8 hours. Signing out clears the browser cookie.
+- The public ID search is designed to reveal only the matching verification result, not a full certificate list.
+- PDF tamper detection is not implemented. The official database verification page is the source of truth.
 - A private academy verification system is not equivalent to government accreditation.
