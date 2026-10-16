@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   if (!['GET','POST','PATCH'].includes(req.method)) return send(res, 405, { error: 'Method not allowed' });
   try {
     const db = serverClient();
-    if (!await requireAdmin(req, res, db)) return;
+    if (!await requireAdmin(req, res)) return;
     if (req.method === 'GET') {
       const { data, error } = await db.from('certificates').select('*').order('created_at', { ascending: false }).limit(500);
       if (error) throw error;
